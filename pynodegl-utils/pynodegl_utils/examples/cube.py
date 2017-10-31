@@ -3,7 +3,6 @@ from OpenGL import GL
 from pynodegl import (
         AnimKeyFrameFloat,
         AnimatedFloat,
-        Camera,
         GLState,
         Group,
         Media,
@@ -54,13 +53,7 @@ def rotating_cube(cfg):
         axis = [int(i == x) for x in range(3)]
         cube = Rotate(cube, axis=axis, anim=rot_animkf)
 
-    camera = Camera(cube)
-    camera.set_eye(0.0, 0.0, 2.0)
-    camera.set_center(0.0, 0.0, 0.0)
-    camera.set_up(0.0, 1.0, 0.0)
-    camera.set_perspective(45.0, cfg.aspect_ratio, 1.0, 10.0)
-
-    return camera
+    return cube
 
 @scene()
 def scene_with_framebuffer(cfg):

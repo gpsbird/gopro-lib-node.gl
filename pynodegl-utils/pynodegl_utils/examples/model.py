@@ -8,7 +8,6 @@ from pynodegl import (
         AnimatedVec3,
         BufferVec2,
         BufferVec3,
-        Camera,
         Geometry,
         GLState,
         Media,
@@ -111,13 +110,7 @@ def obj(cfg, n=0.5, model=None):
               AnimKeyFrameFloat(cfg.duration, 360*2)]
     rot = Rotate(render, name="roty", axis=(0, 1, 0), anim=AnimatedFloat(animkf))
 
-    camera = Camera(rot)
-    camera.set_eye(2.0, 2.0, 2.0)
-    camera.set_center(0.0, 0.0, 0.0)
-    camera.set_up(0.0, 1.0, 0.0)
-    camera.set_perspective(45.0, cfg.aspect_ratio, 1.0, 10.0)
-
-    return camera
+    return rot
 
 
 @scene(stl={'type': 'file', 'filter': 'STL files (*.stl)'},
@@ -163,10 +156,4 @@ def stl(cfg, stl=None, scale=.8):
         axis = [int(i == x) for x in range(3)]
         solid = Rotate(solid, axis=axis, anim=rot_animkf)
 
-    camera = Camera(solid)
-    camera.set_eye(2.0, 2.0, 2.0)
-    camera.set_center(0.0, 0.0, 0.0)
-    camera.set_up(0.0, 1.0, 0.0)
-    camera.set_perspective(45.0, cfg.aspect_ratio, 1.0, 10.0)
-
-    return camera
+    return solid
