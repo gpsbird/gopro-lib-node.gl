@@ -616,6 +616,7 @@ class _Toolbar(QtWidgets.QWidget):
                 'aspect_ratio': ASPECT_RATIOS[self._ar_cbbox.currentIndex()],
                 'extra_args': self._scene_extra_args,
                 'has_fps': self._fps_chkbox.isChecked(),
+                'auto_camera': self._autocam_chkbox.isChecked(),
         }
 
     def _load_current_scene(self, load_widgets=True):
@@ -683,6 +684,10 @@ class _Toolbar(QtWidgets.QWidget):
         self._load_current_scene()
 
     @QtCore.pyqtSlot()
+    def _autocam_chkbox_changed(self):
+        self._load_current_scene()
+
+    @QtCore.pyqtSlot()
     def _set_loglevel(self):
         level_id = self._loglevel_cbbox.currentIndex()
         level_str = self.LOG_LEVELS[level_id]
@@ -722,6 +727,7 @@ class _Toolbar(QtWidgets.QWidget):
         self._current_scene_data = None
 
         self._fps_chkbox = QtWidgets.QCheckBox('Show FPS')
+        self._autocam_chkbox = QtWidgets.QCheckBox('Auto-insert camera', checked=True)
 
         self._ar_cbbox = QtWidgets.QComboBox()
         for ar in ASPECT_RATIOS:
@@ -756,6 +762,7 @@ class _Toolbar(QtWidgets.QWidget):
 
         self._scene_toolbar_layout = QtWidgets.QVBoxLayout(self)
         self._scene_toolbar_layout.addWidget(self._fps_chkbox)
+        self._scene_toolbar_layout.addWidget(self._autocam_chkbox)
         self._scene_toolbar_layout.addLayout(ar_hbox)
         self._scene_toolbar_layout.addLayout(samples_hbox)
         self._scene_toolbar_layout.addLayout(loglevel_hbox)
@@ -765,6 +772,7 @@ class _Toolbar(QtWidgets.QWidget):
         self._scn_view.clicked.connect(self._scn_view_selected)
         self._scn_view.activated.connect(self._scn_view_selected)
         self._fps_chkbox.stateChanged.connect(self._fps_chkbox_changed)
+        self._autocam_chkbox.stateChanged.connect(self._autocam_chkbox_changed)
         self._ar_cbbox.currentIndexChanged.connect(self._set_aspect_ratio)
         self._samples_cbbox.currentIndexChanged.connect(self._set_samples)
         self._loglevel_cbbox.currentIndexChanged.connect(self._set_loglevel)
@@ -942,6 +950,14 @@ class _MainWindow(QtWidgets.QSplitter):
             g = Group()
             g.add_children(fps, render)
             scene = g
+
+        if cfg_dict['auto_camera'] and not isinstance(scene, ngl.Camera):
+            camera = ngl.Camera(scene)
+            camera.set_eye(0.0, 0.0, 2.0)
+            camera.set_center(0.0, 0.0, 0.0)
+            camera.set_up(0.0, 1.0, 0.0)
+            camera.set_perspective(45.0, scene_cfg.aspect_ratio, 1.0, 10.0)
+            scene = camera
 
         return scene, scene_cfg
 
