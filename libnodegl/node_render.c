@@ -96,6 +96,7 @@ static inline void bind_texture(const struct glfunctions *gl, GLenum target, GLi
 #define SAMPLING_MODE_NONE         0
 #define SAMPLING_MODE_2D           1
 #define SAMPLING_MODE_EXTERNAL_OES 2
+#define SAMPLING_MODE_NV12         3
 
 static int update_uniforms(struct ngl_node *node)
 {
@@ -150,12 +151,35 @@ static int update_uniforms(struct ngl_node *node)
             int sampling_mode = SAMPLING_MODE_NONE;
             switch (texture->target) {
             case GL_TEXTURE_2D:
+#if TARGET_IPHONE
+                if (texture->ios_nv12_direct_rendering) {
+                    if (info->sampler_id >= 0)
+                        ngli_glUniform1i(gl, info->sampler_id, 0);
+
+                    if (info->external_sampler_id >= 0)
+                        ngli_glUniform1i(gl, info->external_sampler_id, 0);
+
+                    if (info->y_sampler_id >= 0 && info->uv_sampler_id >= 0) {
+                        sampling_mode = SAMPLING_MODE_NV12;
+                        bind_texture(gl, texture->target, info->y_sampler_id, CVOpenGLESTextureGetName(texture->ios_textures[0]), texture_index++);
+                        bind_texture(gl, texture->target, info->uv_sampler_id, CVOpenGLESTextureGetName(texture->ios_textures[1]), texture_index);
+                    }
+
+                    break;
+                }
+#endif
                 if (info->sampler_id >= 0) {
                     sampling_mode = SAMPLING_MODE_2D;
                     bind_texture(gl, texture->target, info->sampler_id, texture->id, texture_index);
                 }
 
                 if (info->external_sampler_id >= 0)
+                    ngli_glUniform1i(gl, info->external_sampler_id, 0);
+
+                if (info->y_sampler_id >= 0)
+                    ngli_glUniform1i(gl, info->external_sampler_id, 0);
+
+                if (info->uv_sampler_id >= 0)
                     ngli_glUniform1i(gl, info->external_sampler_id, 0);
                 break;
             case GL_TEXTURE_3D:
@@ -170,6 +194,12 @@ static int update_uniforms(struct ngl_node *node)
                     sampling_mode = SAMPLING_MODE_EXTERNAL_OES;
                     bind_texture(gl, texture->target, info->external_sampler_id, texture->id, texture_index);
                 }
+
+                if (info->y_sampler_id >= 0)
+                    ngli_glUniform1i(gl, info->external_sampler_id, 0);
+
+                if (info->uv_sampler_id >= 0)
+                    ngli_glUniform1i(gl, info->external_sampler_id, 0);
                 break;
 #endif
             }
@@ -396,20 +426,26 @@ static int render_init(struct ngl_node *node)
             GET_TEXTURE_UNIFORM_LOCATION(sampling_mode);
             GET_TEXTURE_UNIFORM_LOCATION(sampler);
             GET_TEXTURE_UNIFORM_LOCATION(external_sampler);
+            GET_TEXTURE_UNIFORM_LOCATION(y_sampler);
+            GET_TEXTURE_UNIFORM_LOCATION(uv_sampler);
             GET_TEXTURE_UNIFORM_LOCATION(coord_matrix);
             GET_TEXTURE_UNIFORM_LOCATION(dimensions);
 
 #undef GET_TEXTURE_UNIFORM_LOCATION
 
             if (info->sampler_id < 0 &&
-                info->external_sampler_id < 0) {
+                info->external_sampler_id < 0 &&
+                info->y_sampler_id < 0 &&
+                info->uv_sampler_id < 0) {
                 LOG(WARNING, "no sampler found for texture %s", entry->key);
             }
 
             if (info->sampler_id >= 0 &&
-                info->external_sampler_id >= 0)
+                (info->external_sampler_id >= 0 ||
+                (info->y_sampler_id >= 0 && info->uv_sampler_id >= 0)))
                 s->disable_1st_texture_unit = 1;
 
+#if TARGET_ANDROID
             struct texture *texture = tnode->priv_data;
             texture->direct_rendering = texture->direct_rendering &&
                                         info->external_sampler_id >= 0;
@@ -417,6 +453,16 @@ static int render_init(struct ngl_node *node)
                 "direct rendering %s available for texture %s",
                 texture->direct_rendering ? "is" : "is not",
                 entry->key);
+#elif TARGET_IPHONE
+            struct texture *texture = tnode->priv_data;
+            texture->direct_rendering = texture->direct_rendering &&
+                                        info->y_sampler_id >= 0 &&
+                                        info->uv_sampler_id >= 0;
+            LOG(VERBOSE,
+                "nv12 direct rendering %s available for texture %s",
+                texture->direct_rendering ? "is" : "is not",
+                entry->key);
+#endif
 
             i++;
         }

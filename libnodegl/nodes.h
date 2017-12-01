@@ -281,7 +281,8 @@ struct texture {
     struct ngl_node *rtt;
 
 #ifdef TARGET_IPHONE
-    CVOpenGLESTextureRef texture;
+    int ios_nv12_direct_rendering;
+    CVOpenGLESTextureRef ios_textures[2];
 #endif
 };
 
@@ -297,6 +298,8 @@ struct textureprograminfo {
     int sampling_mode_id;
     int sampler_id;
     int external_sampler_id;
+    int y_sampler_id;
+    int uv_sampler_id;
     int coord_matrix_id;
     int dimensions_id;
 };
