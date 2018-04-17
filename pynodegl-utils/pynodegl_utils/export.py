@@ -18,6 +18,16 @@ class Exporter(QtCore.QObject):
         self._get_scene_func = get_scene_func
 
     def export(self, filename, w, h, extra_enc_args=None):
+        if filename.endswith('gif'):
+            palette_filename = '/tmp/palette.png'
+            pass1_args = ['-vf', 'palettegen']
+            pass2_args = extra_enc_args + ['-i', palette_filename, '-lavfi', 'paletteuse']
+            self._export(palette_filename, w, h, pass1_args)
+            return self._export(filename, w, h, pass2_args)
+
+        return self._export(filename, w, h, extra_enc_args)
+
+    def _export(self, filename, w, h, extra_enc_args=None):
         fd_r, fd_w = os.pipe()
 
         cfg = self._get_scene_func(pipe=(fd_w, w, h))
