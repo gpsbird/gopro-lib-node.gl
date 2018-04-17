@@ -23,14 +23,17 @@
 
 import subprocess
 from PyQt5 import QtCore, QtWidgets
+from fractions import Fraction
 
 from pynodegl_utils.export import Exporter
 
 
 class ExportView(QtWidgets.QWidget):
 
-    def __init__(self, get_scene_func):
+    def __init__(self, get_scene_func, config):
         super(ExportView, self).__init__()
+
+        self._framerate = config.get('framerate')
 
         self._ofile_text = QtWidgets.QLineEdit('/tmp/ngl-export.mp4')
         ofile_btn = QtWidgets.QPushButton('Browse')
@@ -54,11 +57,16 @@ class ExportView(QtWidgets.QWidget):
         self._pgbar = QtWidgets.QProgressBar()
         self._pgbar.hide()
 
+        self._warning_label = QtWidgets.QLabel()
+        self._warning_label.setStyleSheet('color: red')
+        self._warning_label.hide()
+
         form = QtWidgets.QFormLayout(self)
         form.addRow('Filename:', file_box)
         form.addRow('Width:',    self._spinbox_width)
         form.addRow('Height:',   self._spinbox_height)
         form.addRow('Extra encoder arguments:', self._encopts_text)
+        form.addRow(self._warning_label)
         form.addRow(self._export_btn)
         form.addRow(self._pgbar)
 
@@ -67,6 +75,26 @@ class ExportView(QtWidgets.QWidget):
 
         ofile_btn.clicked.connect(self._select_ofile)
         self._export_btn.clicked.connect(self._export)
+        self._ofile_text.textChanged.connect(self._ofile_text_changed)
+
+    def _check_frame_rate(self):
+        if self._ofile_text.text().endswith('.gif'):
+            fr = self._framerate
+            gif_recommended_framerate = (Fraction(25, 1), Fraction(50, 1))
+            if Fraction(*fr) not in gif_recommended_framerate:
+                self._warning_label.setText('It is recommended to use one of these frame rate when exporting to GIF: {}'.format(', '.join('%s' % x for x in gif_recommended_framerate)))
+                self._warning_label.show()
+                return
+        self._warning_label.hide()
+
+    @QtCore.pyqtSlot()
+    def _ofile_text_changed(self):
+        self._check_frame_rate()
+
+    @QtCore.pyqtSlot(tuple)
+    def set_frame_rate(self, fr):
+        self._framerate = fr
+        self._check_frame_rate()
 
     @QtCore.pyqtSlot()
     def _export(self):
