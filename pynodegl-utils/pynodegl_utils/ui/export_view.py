@@ -34,6 +34,7 @@ class ExportView(QtWidgets.QWidget):
         super(ExportView, self).__init__()
 
         self._framerate = config.get('framerate')
+        self._aspect_ratio = config.get('aspect_ratio')
 
         self._ofile_text = QtWidgets.QLineEdit('/tmp/ngl-export.mp4')
         ofile_btn = QtWidgets.QPushButton('Browse')
@@ -75,26 +76,45 @@ class ExportView(QtWidgets.QWidget):
 
         ofile_btn.clicked.connect(self._select_ofile)
         self._export_btn.clicked.connect(self._export)
-        self._ofile_text.textChanged.connect(self._ofile_text_changed)
+        self._ofile_text.textChanged.connect(self._check_settings)
+        self._spinbox_width.valueChanged.connect(self._check_settings)
+        self._spinbox_height.valueChanged.connect(self._check_settings)
 
-    def _check_frame_rate(self):
+    def enter(self):
+        self._check_settings()
+
+    @QtCore.pyqtSlot()
+    def _check_settings(self):
+
+        warnings = []
+
         if self._ofile_text.text().endswith('.gif'):
             fr = self._framerate
             gif_recommended_framerate = (Fraction(25, 1), Fraction(50, 1))
             if Fraction(*fr) not in gif_recommended_framerate:
-                self._warning_label.setText('It is recommended to use one of these frame rate when exporting to GIF: {}'.format(', '.join('%s' % x for x in gif_recommended_framerate)))
-                self._warning_label.show()
-                return
-        self._warning_label.hide()
+                gif_framerates = ', '.join('%s' % x for x in gif_recommended_framerate)
+                warnings.append('It is recommended to use one of these frame rate when exporting to GIF: {}'.format(gif_framerates))
 
-    @QtCore.pyqtSlot()
-    def _ofile_text_changed(self):
-        self._check_frame_rate()
+        width = self._spinbox_width.value()
+        height = self._spinbox_height.value()
+        if Fraction(width, height) != Fraction(*self._aspect_ratio):
+            warnings.append('width/height does not match specified aspect ratio {}'.format(self._aspect_ratio))
+
+        if warnings:
+            self._warning_label.setText('\n'.join(warnings))
+            self._warning_label.show()
+        else:
+            self._warning_label.hide()
 
     @QtCore.pyqtSlot(tuple)
     def set_frame_rate(self, fr):
         self._framerate = fr
-        self._check_frame_rate()
+        self._check_settings()
+
+    @QtCore.pyqtSlot(tuple)
+    def set_aspect_ratio(self, ar):
+        self._aspect_ratio = ar
+        self._check_settings()
 
     @QtCore.pyqtSlot()
     def _export(self):
