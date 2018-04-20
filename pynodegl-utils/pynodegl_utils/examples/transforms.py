@@ -16,6 +16,7 @@ from pynodegl import (
         Program,
         Quad,
         Render,
+        RenderToTexture,
         Rotate,
         Scale,
         Texture2D,
@@ -25,6 +26,93 @@ from pynodegl import (
 )
 
 from pynodegl_utils.misc import scene, get_frag
+
+
+@scene()
+def animated_rectangles(cfg):
+    cfg.duration = 4.
+    step = cfg.duration / 8.
+
+    x = 0.25
+    y = x / 3.
+    white = UniformVec4(value=(1.0, 1.0, 1.0, 0.0))
+
+    group = Group()
+    program = Program(fragment=get_frag('color'))
+
+    centers = ((x + y, 0), (0, -x - y), (-x - y, 0), (0, x + y))
+    for i, center in enumerate(centers):
+        swap = bool(i & 1)
+        s = x if not swap else y
+        t = y if not swap else x
+
+        quad = Quad((center[0] - t, center[1] - s, 0), (2 * t, 0, 0), (0, 2 * s, 0))
+        render = Render(quad, program)
+        render.update_uniforms(color=white)
+
+        start = i * step
+        animkf = (AnimKeyFrameFloat(start,        0),
+                  AnimKeyFrameFloat(cfg.duration, -90))
+        transform = Rotate(render, anim=AnimatedFloat(animkf), anchor=(center[0], center[1], 0))
+
+        if not swap:
+            y_offset = y if center[0] < 0 else -y
+            translate = (-center[0], y_offset, 0)
+        else:
+            x_offset = -y if center[1] < 0 else y
+            translate = (x_offset, -center[1], 0)
+
+        animkf = (AnimKeyFrameVec3(start,        (0, 0, 0)),
+                  AnimKeyFrameVec3(cfg.duration, translate))
+        transform = Translate(transform, anim=AnimatedVec3(animkf))
+
+        group.add_children(transform)
+
+    group = GraphicConfig(
+        group,
+        blend=True,
+        blend_src_factor='dst_alpha',
+        blend_dst_factor='dst_alpha',
+        blend_src_factor_a='src_alpha',
+        blend_dst_factor_a='dst_alpha',
+        blend_op='sub',
+        blend_op_a='sub',
+    )
+
+    camera = Camera(group)
+    camera.set_eye(0, 0, 2)
+    camera.set_center(0.0, 0.0, 0.0)
+    camera.set_up(0.0, 1.0, 0.0)
+    camera.set_perspective(45.0, cfg.aspect_ratio_float, 0.1, 10.0)
+
+    rot_animkf = [AnimKeyFrameFloat(0,            0),
+                  AnimKeyFrameFloat(cfg.duration, 90)]
+    node = Rotate(Identity(), axis=(0, 0, 1), anim=AnimatedFloat(rot_animkf))
+    camera.set_up_transform(node)
+
+    rot_animkf = [AnimKeyFrameVec3(0,            (0, 0, 0)),
+                  AnimKeyFrameVec3(cfg.duration, (0, 0, -1))]
+    node = Translate(Identity(), anim=AnimatedVec3(rot_animkf))
+    camera.set_eye_transform(node)
+
+    size = 1080
+    texture = Texture2D()
+    texture.set_width(size * cfg.aspect_ratio_float)
+    texture.set_height(size)
+    texture.set_mag_filter('linear')
+    texture.set_min_filter('linear')
+    rtt = RenderToTexture(camera, texture)
+    rtt.set_samples(cfg.samples)
+
+    group = Group()
+
+    quad = Quad((-1.0, -1.0, 0), (2, 0, 0), (0, 2, 0))
+    program = Program(fragment=get_frag('chromatic-aberration'))
+    render = Render(quad, program)
+    render.update_textures(tex0=texture)
+
+    group.add_children(rtt, render)
+    return group
 
 
 @scene(color={'type': 'color'},
