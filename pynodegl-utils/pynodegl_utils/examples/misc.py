@@ -410,7 +410,7 @@ def _get_cube_side(texture, program, corner, width, height, color):
 
 
 @scene(display_depth_buffer={'type': 'bool'})
-def cube(cfg, display_depth_buffer=False):
+def cube(cfg, display_depth_buffer=True):
     cube = Group(name="cube")
 
     frag_data = get_frag('tex-tint')
@@ -436,34 +436,41 @@ def cube(cfg, display_depth_buffer=False):
 
     if not display_depth_buffer:
         return camera
-    else:
-        group = Group()
 
-        depth_texture = Texture2D()
-        depth_texture.set_format("depth_component")
-        depth_texture.set_type("unsigned_short")
-        depth_texture.set_width(640)
-        depth_texture.set_height(480)
+    group = Group()
 
-        texture = Texture2D()
-        texture.set_width(640)
-        texture.set_height(480)
-        rtt = RenderToTexture(camera, texture)
-        rtt.set_depth_texture(depth_texture)
+    size = 1080
 
-        quad = Quad((-1.0, -1.0, 0), (1, 0, 0), (0, 1, 0))
-        program = Program()
-        render = Render(quad, program)
-        render.update_textures(tex0=texture)
-        group.add_children(rtt, render)
+    depth_texture = Texture2D()
+    depth_texture.set_format("depth_component")
+    depth_texture.set_type("unsigned_short")
+    depth_texture.set_width(size * cfg.aspect_ratio_float)
+    depth_texture.set_height(size)
+    #depth_texture.set_mag_filter('linear')
+    #depth_texture.set_min_filter('linear')
 
-        quad = Quad((0.0, 0.0, 0), (1, 0, 0), (0, 1, 0))
-        program = Program()
-        render = Render(quad, program)
-        render.update_textures(tex0=depth_texture)
-        group.add_children(rtt, render)
+    texture = Texture2D()
+    texture.set_width(size * cfg.aspect_ratio_float)
+    texture.set_height(size)
+    texture.set_mag_filter('linear')
+    texture.set_min_filter('linear')
+    rtt = RenderToTexture(camera, texture)
+    rtt.set_depth_texture(depth_texture)
+    rtt.set_samples(cfg.samples)
 
-        return group
+    quad = Quad((-1.0, -1.0, 0), (1, 0, 0), (0, 1, 0))
+    program = Program()
+    render = Render(quad, program)
+    render.update_textures(tex0=texture)
+    group.add_children(rtt, render)
+
+    quad = Quad((0.0, 0.0, 0), (1, 0, 0), (0, 1, 0))
+    program = Program()
+    render = Render(quad, program)
+    render.update_textures(tex0=depth_texture)
+    group.add_children(rtt, render)
+
+    return group
 
 
 @scene()
